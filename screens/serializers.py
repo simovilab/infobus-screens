@@ -1,7 +1,12 @@
 from rest_framework import serializers
 
-from .models import DeviceGroup, Device, DistributionChannel, ScreenTemplate
-
+from .models import (
+    DeviceGroup,
+    Device,
+    DistributionChannel,
+    ScreenTemplate,
+    DeviceMessage,
+)
 
 class DeviceGroupSerializer(serializers.ModelSerializer):
     class Meta:
@@ -27,3 +32,9 @@ class ScreenTemplateSerializer(serializers.ModelSerializer):
         model = ScreenTemplate
         fields = "__all__"
         read_only_fields = ("created_at", "updated_at")
+
+
+class DeviceMessageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DeviceMessage
+        fields = "__all__"
