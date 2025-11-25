@@ -1,0 +1,256 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <title>SIMOVILAB – Pantallas Infobús</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        width: 100%;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+        background: #020617; /* fondo oscuro tipo dashboard */
+        color: #e5e7eb;
+      }
+
+      .navbar {
+        height: 56px;
+        background: #0f172a;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 1.5rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+      }
+
+      .navbar-left {
+        display: flex;
+        align-items: center;
+        gap: 0.7rem;
+      }
+
+      .navbar-logo {
+        width: 32px;
+        height: 32px;
+        border-radius: 999px;
+        overflow: hidden;
+        background: #111827;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .navbar-logo img {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+      }
+
+      .navbar-title {
+        font-weight: 600;
+        font-size: 1rem;
+        color: #e5e7eb;
+      }
+
+      .navbar-subtitle {
+        font-size: 0.75rem;
+        color: #9ca3af;
+      }
+
+      .navbar-right {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+      }
+
+      .nav-link {
+        font-size: 0.85rem;
+        color: #9ca3af;
+        text-decoration: none;
+      }
+
+      .nav-link:hover {
+        color: #e5e7eb;
+      }
+
+      .btn-admin {
+        padding: 0.4rem 0.9rem;
+        border-radius: 999px;
+        border: 1px solid #4b5563;
+        background: #111827;
+        color: #e5e7eb;
+        font-size: 0.85rem;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+      }
+
+      .btn-admin:hover {
+        background: #1f2937;
+        border-color: #6b7280;
+      }
+
+      .btn-admin span.icon {
+        font-size: 1rem;
+      }
+
+      .page {
+        min-height: calc(100vh - 56px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1.5rem;
+      }
+
+      .card {
+        max-width: 700px;
+        width: 100%;
+        background: radial-gradient(circle at top left, #1e293b, #020617);
+        border-radius: 1rem;
+        padding: 2.5rem 2rem;
+        box-shadow: 0 20px 40px rgba(15, 23, 42, 0.8);
+        display: grid;
+        grid-template-columns: 1.2fr 1fr;
+        gap: 1.5rem;
+      }
+
+      @media (max-width: 768px) {
+        .card {
+          grid-template-columns: 1fr;
+          text-align: center;
+        }
+      }
+
+      .card-logo-wrapper {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .card-logo {
+        /* sin círculo, sin borde */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+      }
+
+      /* haz el logo del centro más grande */
+      .card-logo img {
+        max-width: 320px;   /* ajústalo si quieres aún más grande */
+        width: 100%;
+        height: auto;
+        object-fit: contain;
+      }
+      
+      .card-content {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 0.8rem;
+      }
+
+      .card-title {
+        font-size: 1.4rem;
+        font-weight: 600;
+        color: #f9fafb;
+      }
+
+      .card-subtitle {
+        font-size: 0.95rem;
+        color: #9ca3af;
+      }
+
+      .card-list {
+        margin: 0.5rem 0 0;
+        padding-left: 1.1rem;
+        font-size: 0.9rem;
+        color: #d1d5db;
+      }
+
+      .card-list li {
+        margin-bottom: 0.25rem;
+      }
+
+      .card-footer {
+        margin-top: 0.9rem;
+        font-size: 0.8rem;
+        color: #6b7280;
+      }
+
+      .card-footer strong {
+        color: #e5e7eb;
+      }
+    </style>
+  </head>
+
+  <body>
+    <header class="navbar">
+      <div class="navbar-left">
+        <div class="navbar-logo">
+          <img
+            src="{% static 'screens/simovilab_logo.png' %}"
+            alt="SIMOVILAB logo"
+          />
+        </div>
+        <div>
+          <div class="navbar-title">SIMOVILAB Screen Server</div>
+          <div class="navbar-subtitle">
+            Plataforma de pantallas Infobús (on-board y parada)
+          </div>
+        </div>
+      </div>
+
+      <div class="navbar-right">
+        <a href="{% url 'home' %}" class="nav-link">Inicio</a>
+        <a href="/admin/" class="btn-admin">
+          <span class="icon">🔐</span>
+          <span>Iniciar sesión (Admin)</span>
+        </a>
+      </div>
+    </header>
+
+    <main class="page">
+      <section class="card">
+        <div class="card-logo-wrapper">
+          <div class="card-logo">
+            <img
+              src="{% static 'screens/simovilab_logo.png' %}"
+              alt="SIMOVILAB logo grande"
+            />
+          </div>
+        </div>
+
+        <div class="card-content">
+          <h1 class="card-title">Servidor de pantallas Infobús</h1>
+          <p class="card-subtitle">
+            Este módulo gestiona la configuración de dispositivos, la
+            distribución de contenidos y las plantillas de visualización para
+            pantallas instaladas a bordo y en paradas.
+          </p>
+
+          <ul class="card-list">
+            <li>Registro y agrupación de dispositivos (rutas, zonas, terminales).</li>
+            <li>Conexión persistente vía WebSockets con colas por dispositivo.</li>
+            <li>Plantillas de pantalla independientes para buses y paradas.</li>
+            <li>Integración con datos en tiempo real (Infobús / demo).</li>
+          </ul>
+
+          <p class="card-footer">
+            Para configurar dispositivos, plantillas y canales de distribución,
+            acceda al <strong>panel de administración</strong> con su usuario
+            institucional.
+          </p>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

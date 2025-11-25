@@ -2,7 +2,7 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <title>Pantalla – {{ device.name }}</title>
+    <title>Pantalla a bordo – {{ device.name }}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
     <style>
@@ -149,14 +149,15 @@
     data-device-token="{{ device.auth_token }}"
   >
     <div id="app">
-      <!-- Fallback por si Vue no monta -->
+      <!-- Fallback si Vue no monta -->
       <div
         style="display:flex;align-items:center;justify-content:center;height:100%;color:white;"
       >
-        Cargando pantalla para {{ device.name }}...
+        Cargando pantalla a bordo para {{ device.name }}...
       </div>
     </div>
 
+    <!-- Vue global -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 
     {% verbatim %}
@@ -170,7 +171,7 @@
       const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
       const wsUrl = `${wsScheme}://${window.location.host}/ws/devices/${deviceId}/?token=${encodeURIComponent(deviceToken)}`;
 
-      console.log("Pantalla iniciada para device:", deviceId);
+      console.log("Pantalla ONBOARD para device:", deviceId);
 
       const App = {
         setup() {
@@ -328,7 +329,7 @@
           };
 
           onMounted(() => {
-            console.log("Vue montado para device:", deviceId);
+            console.log("Vue ONBOARD montado para device:", deviceId);
             loadConfig();
             connectWebSocket();
 

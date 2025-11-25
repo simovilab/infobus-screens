@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Pantalla de parada – {{ device.name }}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: #000;
+        color: #fff;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+        height: 100%;
+        width: 100%;
+        overflow: hidden;
+      }
+
+      #app {
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .top-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.6rem 1rem;
+        background: #111;
+        font-size: 0.9rem;
+      }
+
+      .top-bar .route {
+        font-weight: 600;
+        font-size: 1rem;
+      }
+
+      .top-bar .clock {
+        font-variant-numeric: tabular-nums;
+      }
+
+      .main {
+        flex: 1;
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 0.75rem;
+        padding: 0.75rem 1rem 1rem;
+        box-sizing: border-box;
+      }
+
+      .card {
+        background: #111;
+        border-radius: 0.75rem;
+        padding: 0.75rem 1rem;
+        box-shadow: 0 0 15px rgba(0, 0, 0, 0.6);
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+      }
+
+      .card h2 {
+        margin: 0 0 0.3rem;
+        font-size: 1rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        opacity: 0.8;
+      }
+
+      .stops-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        font-size: 0.95rem;
+      }
+
+      .stops-list li {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.1rem 0;
+        opacity: 0.9;
+      }
+
+      .badge {
+        display: inline-block;
+        padding: 0.1rem 0.5rem;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .badge-info {
+        background: #1d4ed8;
+      }
+
+      .badge-warning {
+        background: #b45309;
+      }
+
+      .badge-occupancy-low {
+        background: #15803d;
+      }
+
+      .badge-occupancy-medium {
+        background: #ca8a04;
+      }
+
+      .badge-occupancy-high {
+        background: #b91c1c;
+      }
+
+      .status-bar {
+        font-size: 0.75rem;
+        padding: 0.2rem 1rem 0.5rem;
+        display: flex;
+        justify-content: space-between;
+        opacity: 0.8;
+      }
+
+      .status-bar span {
+        margin-right: 0.8rem;
+      }
+    </style>
+  </head>
+
+  <body
+    data-device-id="{{ device.id }}"
+    data-device-token="{{ device.auth_token }}"
+  >
+    <div id="app">
+      <!-- Fallback si Vue no monta -->
+      <div
+        style="display:flex;align-items:center;justify-content:center;height:100%;color:white;"
+      >
+        Cargando pantalla de parada para {{ device.name }}...
+      </div>
+    </div>
+
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+
+    {% verbatim %}
+    <script>
+      const { createApp, ref, computed, onMounted, onUnmounted } = Vue;
+
+      const deviceId = document.body.dataset.deviceId;
+      const deviceToken = document.body.dataset.deviceToken;
+
+      const apiBase = `${window.location.origin}/api`;
+      const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
+      const wsUrl = `${wsScheme}://${window.location.host}/ws/devices/${deviceId}/?token=${encodeURIComponent(deviceToken)}`;
+
+      console.log("Pantalla STOP para device:", deviceId);
+
+      const App = {
+        setup() {
+          const time = ref(new Date());
+          const config = ref(null);
+          const context = ref(null);
+
+          const connectionStatus = ref("connecting");
+          const lastMessageAt = ref(null);
+          const socket = ref(null);
+
+          let clockIntervalId = null;
+          let heartbeatIntervalId = null;
+          let reconnectTimeoutId = null;
+
+          const stopName = computed(() => {
+            return context.value?.stop?.name ?? "Parada demo";
+          });
+
+          const upcomingDepartures = computed(() => {
+            return context.value?.upcoming_departures ?? [];
+          });
+
+          const alerts = computed(() => context.value?.alerts ?? []);
+
+          const clockText = computed(() => {
+            const t = time.value;
+            return t.toLocaleTimeString("es-CR", {
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+            });
+          });
+
+          const formatDepartureTime = (dep) => {
+            if (!dep.departure_time) return "";
+            const d = new Date(dep.departure_time);
+            if (Number.isNaN(d.getTime())) return "";
+            return d.toLocaleTimeString("es-CR", {
+              hour: "2-digit",
+              minute: "2-digit",
+            });
+          };
+
+          const departureOccupancyBadgeClass = (occ) => {
+            if (occ === "low") return "badge badge-occupancy-low";
+            if (occ === "medium") return "badge badge-occupancy-medium";
+            if (occ === "high") return "badge badge-occupancy-high";
+            return "badge";
+          };
+
+          const departureOccupancyText = (occ) => {
+            if (!occ) return "Sin datos";
+            if (occ === "low") return "Poca";
+            if (occ === "medium") return "Media";
+            if (occ === "high") return "Alta";
+            return occ;
+          };
+
+          const loadConfig = async () => {
+            try {
+              const res = await fetch(
+                `${apiBase}/devices/${deviceId}/config/`,
+                {
+                  headers: {
+                    "X-DEVICE-TOKEN": deviceToken,
+                  },
+                },
+              );
+              if (!res.ok) {
+                console.error("Error cargando config", res.status);
+                return;
+              }
+              const data = await res.json();
+              config.value = data;
+              console.log("Config cargada:", data);
+            } catch (e) {
+              console.error("Error en loadConfig:", e);
+            }
+          };
+
+          const handleIncomingMessage = (msg, ws) => {
+            lastMessageAt.value = new Date();
+            console.log("Mensaje WS recibido (STOP):", msg);
+
+            if (msg.type === "device_message") {
+              const payload = msg.payload || {};
+              if (payload.context_type === "stop") {
+                context.value = payload;
+              }
+
+              if (msg.message_id != null) {
+                try {
+                  ws.send(
+                    JSON.stringify({
+                      type: "ack",
+                      delivered_ids: [msg.message_id],
+                    }),
+                  );
+                } catch (e) {
+                  console.error("Error enviando ACK:", e);
+                }
+              }
+            }
+          };
+
+          const connectWebSocket = () => {
+            if (
+              socket.value &&
+              (socket.value.readyState === WebSocket.OPEN ||
+                socket.value.readyState === WebSocket.CONNECTING)
+            ) {
+              return;
+            }
+
+            console.log("Conectando WS STOP a:", wsUrl);
+            connectionStatus.value = "connecting";
+
+            const ws = new WebSocket(wsUrl);
+            socket.value = ws;
+
+            ws.onopen = () => {
+              console.log("WS abierto (STOP)");
+              connectionStatus.value = "connected";
+            };
+
+            ws.onclose = (event) => {
+              console.log("WS cerrado (STOP):", event.code, event.reason);
+              connectionStatus.value = "disconnected";
+              socket.value = null;
+
+              if (!reconnectTimeoutId) {
+                reconnectTimeoutId = setTimeout(() => {
+                  reconnectTimeoutId = null;
+                  connectWebSocket();
+                }, 3000);
+              }
+            };
+
+            ws.onerror = (event) => {
+              console.error("WS error (STOP):", event);
+              connectionStatus.value = "error";
+            };
+
+            ws.onmessage = (event) => {
+              let msg = null;
+              try {
+                msg = JSON.parse(event.data);
+              } catch (e) {
+                console.error("Error parseando JSON de WS (STOP):", e);
+                return;
+              }
+              handleIncomingMessage(msg, ws);
+            };
+          };
+
+          onMounted(() => {
+            console.log("Vue STOP montado para device:", deviceId);
+            loadConfig();
+            connectWebSocket();
+
+            clockIntervalId = setInterval(() => {
+              time.value = new Date();
+            }, 1000);
+
+            heartbeatIntervalId = setInterval(() => {
+              if (
+                socket.value &&
+                socket.value.readyState === WebSocket.OPEN
+              ) {
+                try {
+                  socket.value.send(
+                    JSON.stringify({ type: "heartbeat" }),
+                  );
+                } catch (e) {
+                  console.error("Error enviando heartbeat (STOP):", e);
+                }
+              }
+            }, 20000);
+          });
+
+          onUnmounted(() => {
+            if (clockIntervalId) clearInterval(clockIntervalId);
+            if (heartbeatIntervalId) clearInterval(heartbeatIntervalId);
+            if (reconnectTimeoutId) clearTimeout(reconnectTimeoutId);
+            if (socket.value) {
+              socket.value.close();
+            }
+          });
+
+          return {
+            time,
+            clockText,
+            config,
+            context,
+            stopName,
+            upcomingDepartures,
+            alerts,
+            formatDepartureTime,
+            departureOccupancyBadgeClass,
+            departureOccupancyText,
+            connectionStatus,
+            lastMessageAt,
+          };
+        },
+
+        template: `
+          <div v-if="!context">
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;">
+              <div class="label">Esperando datos de Infobús demo...</div>
+              <div style="margin-top:0.5rem;font-size:0.9rem;opacity:0.8;">
+                Estado WS: {{ connectionStatus }}
+              </div>
+            </div>
+          </div>
+
+          <div v-else>
+            <div class="top-bar">
+              <div class="route">
+                {{ stopName }}
+              </div>
+              <div class="clock">
+                {{ clockText }}
+              </div>
+            </div>
+
+            <div class="main">
+              <div class="card" style="grid-column: 1 / span 2;">
+                <h2>Próximas salidas</h2>
+                <ul class="stops-list">
+                  <li v-for="dep in upcomingDepartures" :key="dep.route_code + dep.departure_time">
+                    <span>
+                      <strong>{{ dep.route_code }}</strong>
+                      &nbsp;{{ dep.route_name }} → {{ dep.destination }}
+                    </span>
+                    <span style="text-align:right;">
+                      <span style="display:block;">
+                        {{ formatDepartureTime(dep) }} ({{ dep.eta_minutes }} min)
+                      </span>
+                      <span
+                        :class="departureOccupancyBadgeClass(dep.occupancy)"
+                        style="margin-top:0.1rem;display:inline-block;"
+                      >
+                        {{ departureOccupancyText(dep.occupancy) }}
+                      </span>
+                    </span>
+                  </li>
+                  <li v-if="upcomingDepartures.length === 0" style="opacity:0.7;">
+                    No hay salidas próximas en la demo.
+                  </li>
+                </ul>
+              </div>
+
+              <div class="card">
+                <h2>Alertas</h2>
+                <div v-for="(alert, index) in alerts" :key="index" style="margin-bottom:0.2rem;">
+                  <span class="badge badge-warning" v-if="alert.level === 'warning'">
+                    {{ alert.code || 'ALERTA' }}
+                  </span>
+                  <span class="badge badge-info" v-else>
+                    {{ alert.code || 'INFO' }}
+                  </span>
+                  &nbsp;
+                  <span>{{ alert.message }}</span>
+                </div>
+                <div v-if="alerts.length === 0" style="opacity:0.7;">
+                  Sin alertas en este momento.
+                </div>
+              </div>
+            </div>
+
+            <div class="status-bar">
+              <div>
+                <span>WS: {{ connectionStatus }}</span>
+                <span v-if="lastMessageAt">
+                  Último mensaje: {{ lastMessageAt.toLocaleTimeString("es-CR") }}
+                </span>
+              </div>
+              <div>
+                <span v-if="config && config.device && config.device.id">
+                  Dispositivo: {{ config.device.id }}
+                </span>
+              </div>
+            </div>
+          </div>
+        `,
+      };
+
+      createApp(App).mount("#app");
+    </script>
+    {% endverbatim %}
+  </body>
+</html>
