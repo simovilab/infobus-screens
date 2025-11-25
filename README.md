@@ -8,13 +8,7 @@ B53279
 ## Para Contruir y correr el contenedor
 
 ```
-docker build -t simovilab-screens .
-```
-
-## Correr el contenedor
-
-```
-docker run --rm -p 8000:8000 simovilab-screens
+docker compose up --build
 ```
 
 ## Modos
@@ -29,8 +23,10 @@ Onboard: /api/screens/<UUID_ONBOARD>/
 
 Stop: /api/screens/<UUID_STOP>/
 
-## Configuración adicional para Redis
+## Para correr comandos dentro del contenedor web:
 
 ```
-docker compose up --build
+docker-compose exec web uv run python manage.py migrate
+docker-compose exec web uv run python manage.py createsuperuser
+docker-compose exec web uv run python manage.py generate_demo_messages --device-id <UUID>
 ```
