@@ -1,0 +1,33 @@
+version: "3.9"
+
+services:
+  web:
+    build: .
+    container_name: simovilab-screens-web
+    command: >
+      uv run daphne config.asgi:application
+      --port 8000
+      --bind 0.0.0.0
+    ports:
+      - "8000:8000"
+    # En desarrollo es cómodo montar el código para ver cambios sin rebuild completo
+    volumes:
+      - .:/app
+    environment:
+      # Ajusta DEBUG según quieras (en producción debería ser "False")
+      DJANGO_SETTINGS_MODULE: config.settings
+      DEBUG: "True"
+      # URL interna hacia Redis (nombre del servicio + puerto)
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7-alpine
+    container_name: simovilab-redis
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    volumes:
+      - redis_data:/data
+
+volumes:
+  redis_data:
